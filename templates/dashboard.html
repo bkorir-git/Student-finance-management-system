@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section id="dashboard-section">
+        <div class="section-header">
+            <h2>Dashboard</h2>
+            <p>Overview of your student finance system</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card blue">
+                <div class="stat-content">
+                    <i class="fas fa-users stat-icon blue"></i>
+                    <div class="stat-info">
+                        <p>Total Students</p>
+                        <p id="total-students">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-content">
+                    <i class="fas fa-money-bill stat-icon green"></i>
+                    <div class="stat-info">
+                        <p>Fees Collected</p>
+                        <p id="fees-collected">{{ CURRENCY }} 0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card red">
+                <div class="stat-content">
+                    <i class="fas fa-exclamation-triangle stat-icon red"></i>
+                    <div class="stat-info">
+                        <p>Outstanding Balance</p>
+                        <p id="outstanding-balance">{{ CURRENCY }} 0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-content">
+                    <i class="fas fa-calendar stat-icon purple"></i>
+                    <div class="stat-info">
+                        <p>This Month</p>
+                        <p id="monthly-payments">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar and Charts -->
+        <div class="grid-2">
+            <!-- Calendar -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Payment Calendar</h3>
+                    <div class="calendar-controls">
+                        <button type="button" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+                        <span id="current-month"></span>
+                        <button type="button" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="calendar-grid mb-2">
+                    <div class="calendar-day-header">Sun</div>
+                    <div class="calendar-day-header">Mon</div>
+                    <div class="calendar-day-header">Tue</div>
+                    <div class="calendar-day-header">Wed</div>
+                    <div class="calendar-day-header">Thu</div>
+                    <div class="calendar-day-header">Fri</div>
+                    <div class="calendar-day-header">Sat</div>
+                </div>
+                <div id="calendar-dates" class="calendar-grid"></div>
+            </div>
+
+            <!-- Payment Chart -->
+            <div class="card">
+                <h3 class="mb-4">Payment Trends</h3>
+                <div class="chart-container">
+                    <canvas id="payment-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDashboardStats();
+        loadPaymentTrends();
+        generateCalendar();
+    });
+
+    let currentMonth = new Date();
+    let paymentChart = null;
+
+    function loadDashboardStats() {
+        fetch('/api/dashboard/stats')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('total-students').textContent = data.total_students;
+                document.getElementById('fees-collected').textContent = `{{ CURRENCY }} ${data.fees_collected.toLocaleString()}`;
+                document.getElementById('outstanding-balance').textContent = `{{ CURRENCY }} ${data.outstanding_balance.toLocaleString()}`;
+                document.getElementById('monthly-payments').textContent = data.monthly_payments;
+            })
+            .catch(error => console.error('Error loading stats:', error));
+    }
+
+    function loadPaymentTrends() {
+        fetch('/api/dashboard/payment-trends')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('payment-chart').getContext('2d');
+                
+                if (paymentChart) {
+                    paymentChart.destroy();
+                }
+                
+                paymentChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.map(d => d.month),
+                        datasets: [{
+                            label: 'Payments',
+                            data: data.map(d => d.amount),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '{{ CURRENCY }} ' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Error loading payment trends:', error));
+    }
+
+    function generateCalendar() {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'];
+        
+        document.getElementById('current-month').textContent = `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+        
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        
+        // Load payment data for this month
+        fetch(`/api/dashboard/payment-calendar/${year}/${month + 1}`)
+            .then(response => response.json())
+            .then(paymentData => {
+                const firstDay = new Date(year, month, 1);
+                const lastDay = new Date(year, month + 1, 0);
+                const startDate = new Date(firstDay);
+                startDate.setDate(startDate.getDate() - firstDay.getDay());
+                
+                const calendarDates = document.getElementById('calendar-dates');
+                calendarDates.innerHTML = '';
+                
+                for (let i = 0; i < 42; i++) {
+                    const date = new Date(startDate);
+                    date.setDate(startDate.getDate() + i);
+                    
+                    const dayElement = document.createElement('div');
+                    dayElement.className = 'calendar-day';
+                    
+                    if (date.getMonth() !== month) {
+                        dayElement.className += ' other-month';
+                    }
+                    
+                    const dateStr = date.toISOString().split('T')[0];
+                    if (paymentData[dateStr]) {
+                        dayElement.className += ' has-payment';
+                        dayElement.title = `${paymentData[dateStr].count} payment(s) - {{ CURRENCY }} ${paymentData[dateStr].total.toLocaleString()}`;
+                    }
+                    
+                    dayElement.textContent = date.getDate();
+                    calendarDates.appendChild(dayElement);
+                }
+            })
+            .catch(error => console.error('Error loading calendar:', error));
+    }
+
+    function changeMonth(direction) {
+        currentMonth.setMonth(currentMonth.getMonth() + direction);
+        generateCalendar();
+    }
+</script>
+{% endblock %}

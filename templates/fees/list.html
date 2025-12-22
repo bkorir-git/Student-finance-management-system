@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Fee Structures - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section id="fees-section">
+        <div class="header-with-action">
+            <div class="section-header">
+                <h2>Fee Structure Management</h2>
+                <p>Define fees per grade and term</p>
+            </div>
+            <button type="button" onclick="navigateTo('/fees/create')" class="btn btn-purple">
+                <i class="fas fa-plus"></i> Add Fee Structure
+            </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-4">
+            <form method="GET" action="{{ url_for('fee.index') }}">
+                <div class="report-grid">
+                    <div class="form-group">
+                        <label>Grade</label>
+                        <select name="grade" class="form-control">
+                            <option value="">All Grades</option>
+                            {% for i in range(1, 13) %}
+                            <option value="{{ i }}" {% if grade_filter == i|string %}selected{% endif %}>Grade {{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Term</label>
+                        <select name="term" class="form-control">
+                            <option value="">All Terms</option>
+                            <option value="Term 1" {% if term_filter == 'Term 1' %}selected{% endif %}>Term 1</option>
+                            <option value="Term 2" {% if term_filter == 'Term 2' %}selected{% endif %}>Term 2</option>
+                            <option value="Term 3" {% if term_filter == 'Term 3' %}selected{% endif %}>Term 3</option>
+                            <option value="Annual" {% if term_filter == 'Annual' %}selected{% endif %}>Annual</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="visibility: hidden;">Search</label>
+                        <button type="submit" class="btn btn-blue" style="width: 100%;">
+                            <i class="fas fa-filter"></i> Filter
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Fee Structures Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Grade</th>
+                        <th>Term</th>
+                        <th>Fee Type</th>
+                        <th>Amount</th>
+                        <th>Academic Year</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fee in fees %}
+                    <tr>
+                        <td>Grade {{ fee.grade }}</td>
+                        <td>{{ fee.term }}</td>
+                        <td>{{ fee.fee_type }}</td>
+                        <td>{{ fee.amount|currency }}</td>
+                        <td>{{ fee.academic_year or '-' }}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button type="button" onclick="navigateTo('/fees/edit/{{ fee.id }}')" class="action-btn edit" title="Edit Fee">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" onclick="deleteFee({{ fee.id }}, 'Grade {{ fee.grade }} - {{ fee.fee_type }}')" class="action-btn delete" title="Delete Fee">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">No fee structures found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<script>
+function deleteFee(feeId, feeName) {
+    if (confirm(`Are you sure you want to delete ${feeName}?`)) {
+        fetch(`/fees/delete/${feeId}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting fee structure');
+            console.error(error);
+        });
+    }
+}
+</script>
+{% endblock %}

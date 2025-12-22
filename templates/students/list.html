@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Students - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section id="students-section">
+        <div class="header-with-action">
+            <div class="section-header">
+                <h2>Student Management</h2>
+                <p>Manage student information and balances</p>
+            </div>
+            <button type="button" onclick="navigateTo('/students/create')" class="btn btn-blue">
+                <i class="fas fa-plus"></i> Add Student
+            </button>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="card mb-4">
+            <form method="GET" action="{{ url_for('student.index') }}">
+                <div class="report-grid">
+                    <div class="form-group">
+                        <label>Search</label>
+                        <input type="text" name="search" class="form-control" placeholder="Name, ID, Contact..." value="{{ search }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Grade</label>
+                        <select name="grade" class="form-control">
+                            <option value="">All Grades</option>
+                            {% for i in range(1, 13) %}
+                            <option value="{{ i }}" {% if grade_filter == i|string %}selected{% endif %}>Grade {{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="visibility: hidden;">Search</label>
+                        <button type="submit" class="btn btn-blue" style="width: 100%;">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Students Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Full Name</th>
+                        <th>Grade</th>
+                        <th>Guardian Contact</th>
+                        <th>Balance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students.items %}
+                    <tr>
+                        <td>{{ student.student_number }}</td>
+                        <td>{{ student.full_name }}</td>
+                        <td>Grade {{ student.grade }}</td>
+                        <td>{{ student.guardian_contact }}</td>
+                        <td class="{{ 'text-red' if student.balance > 0 else 'text-green' }}">
+                            {{ student.balance|currency }}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <button type="button" onclick="navigateTo('/students/edit/{{ student.id }}')" class="action-btn edit" title="Edit Student">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" onclick="applyFeeStructure({{ student.id }})" class="action-btn apply-fee" title="Apply Fee Structure">
+                                    <i class="fas fa-plus-circle"></i>
+                                </button>
+                                <button type="button" onclick="viewStudentStatement({{ student.id }})" class="action-btn receipt" title="View Statement">
+                                    <i class="fas fa-receipt"></i>
+                                </button>
+                                <button type="button" onclick="deleteStudent({{ student.id }}, '{{ student.full_name|replace("'", "\\'") }}')" class="action-btn delete" title="Delete Student">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center">No students found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if students.pages > 1 %}
+        <div class="pagination mt-4">
+            {% if students.has_prev %}
+            <a href="{{ url_for('student.index', page=students.prev_num, search=search, grade=grade_filter) }}" class="btn btn-secondary">Previous</a>
+            {% endif %}
+            <span>Page {{ students.page }} of {{ students.pages }}</span>
+            {% if students.has_next %}
+            <a href="{{ url_for('student.index', page=students.next_num, search=search, grade=grade_filter) }}" class="btn btn-secondary">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<script>
+function applyFeeStructure(studentId) {
+    if (confirm('Apply fee structure to this student?')) {
+        fetch('/students/apply-fees/' + studentId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Fee structure applied successfully!\nAmount: {{ CURRENCY }} ' + data.amount_applied.toLocaleString() + '\nNew Balance: {{ CURRENCY }} ' + data.new_balance.toLocaleString());
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error applying fee structure');
+            console.error(error);
+        });
+    }
+}
+
+function deleteStudent(studentId, studentName) {
+    if (confirm('Are you sure you want to delete ' + studentName + '? This action cannot be undone.')) {
+        fetch('/students/delete/' + studentId, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting student');
+            console.error(error);
+        });
+    }
+}
+
+function viewStudentStatement(studentId) {
+    window.open('/payments/receipt/' + studentId, '_blank');
+}
+</script>
+{% endblock %}
