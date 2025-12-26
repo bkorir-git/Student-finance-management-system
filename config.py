@@ -5,20 +5,13 @@ class Config:
     # Basic Flask config
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
-    # Database configuration
-    MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
-    MYSQL_USER = os.environ.get('MYSQL_USER', 'root')
-    MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'root')
-    MYSQL_DB = os.environ.get('MYSQL_DB', 'student_finance_db')
-    MYSQL_PORT = int(os.environ.get('MYSQL_PORT', 3306))
-    
-    # SQLAlchemy config
-    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+    # Database configuration (PostgreSQL for Render)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///local.db'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_POOL_SIZE = 10
     SQLALCHEMY_POOL_RECYCLE = 3600
     SQLALCHEMY_POOL_PRE_PING = True
-    
+
     # Session config
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
     SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
@@ -28,8 +21,8 @@ class Config:
     # Pagination
     ITEMS_PER_PAGE = 50
     
-    # File upload (for future use)
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+    # File upload
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
     UPLOAD_FOLDER = 'uploads'
     
     # App settings
