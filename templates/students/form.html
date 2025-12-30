@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if student else 'Add' }} Student - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section>
+        <div class="section-header">
+            <h2>{{ 'Edit' if student else 'Add New' }} Student</h2>
+            <p>{{ 'Update' if student else 'Enter' }} student information</p>
+        </div>
+
+        <div class="card" style="max-width: 800px; margin: 0 auto;">
+            <form method="POST">
+                <div class="form-group">
+                    <label for="full_name">Full Name *</label>
+                    <input type="text" id="full_name" name="full_name" class="form-control" 
+                           value="{{ student.full_name if student else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="grade">Grade *</label>
+                    <select id="grade" name="grade" class="form-control" required>
+                        <option value="">Select Grade</option>
+                        {% for i in range(1, 13) %}
+                        <option value="{{ i }}" {% if student and student.grade == i|string %}selected{% endif %}>
+                            Grade {{ i }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="guardian_name">Guardian Name</label>
+                    <input type="text" id="guardian_name" name="guardian_name" class="form-control" 
+                           value="{{ student.guardian_name if student else '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="guardian_contact">Guardian Contact *</label>
+                    <input type="tel" id="guardian_contact" name="guardian_contact" class="form-control" 
+                           value="{{ student.guardian_contact if student else '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="guardian_email">Guardian Email</label>
+                    <input type="email" id="guardian_email" name="guardian_email" class="form-control" 
+                           value="{{ student.guardian_email if student else '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="address">Address</label>
+                    <textarea id="address" name="address" class="form-control" rows="3">{{ student.address if student else '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="enrollment_date">Enrollment Date</label>
+                    <input type="date" id="enrollment_date" name="enrollment_date" class="form-control" 
+                           value="{{ student.enrollment_date|date('%Y-%m-%d') if student and student.enrollment_date else '' }}">
+                </div>
+
+                {% if not student %}
+                <div class="form-group">
+                    <label for="balance">Initial Balance ({{ CURRENCY }})</label>
+                    <input type="number" id="balance" name="balance" class="form-control" 
+                           step="0.01" value="0" placeholder="Leave 0 to auto-calculate from fee structure">
+                    <small class="text-gray">If left at 0, the system will automatically calculate fees based on the selected grade.</small>
+                </div>
+                {% endif %}
+
+                <div class="modal-footer">
+                    <button type="button" onclick="navigateTo('/students')" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-blue">
+                        <i class="fas fa-save"></i> Save Student
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

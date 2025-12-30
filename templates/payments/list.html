@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}Payments - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section id="payments-section">
+        <div class="header-with-action">
+            <div class="section-header">
+                <h2>Payment Management</h2>
+                <p>Record and track student payments</p>
+            </div>
+            <button type="button" onclick="openPaymentModal()" class="btn btn-green">
+                <i class="fas fa-plus"></i> Add Payment
+            </button>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="card mb-4">
+            <form method="GET" action="{{ url_for('payment.index') }}">
+                <div class="report-grid">
+                    <div class="form-group">
+                        <label>Search</label>
+                        <input type="text" name="search" class="form-control" placeholder="Student, Receipt..." value="{{ search }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select name="method" class="form-control">
+                            <option value="">All Methods</option>
+                            <option value="Cash" {% if method_filter == 'Cash' %}selected{% endif %}>Cash</option>
+                            <option value="M-Pesa" {% if method_filter == 'M-Pesa' %}selected{% endif %}>M-Pesa</option>
+                            <option value="Bank Transfer" {% if method_filter == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+                            <option value="Cheque" {% if method_filter == 'Cheque' %}selected{% endif %}>Cheque</option>
+                            <option value="Card" {% if method_filter == 'Card' %}selected{% endif %}>Card</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date From</label>
+                        <input type="date" name="date_from" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Date To</label>
+                        <input type="date" name="date_to" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label style="visibility: hidden;">Search</label>
+                        <button type="submit" class="btn btn-blue" style="width: 100%;">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Payments Table -->
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Receipt #</th>
+                        <th>Student</th>
+                        <th>Amount</th>
+                        <th>Fee Type</th>
+                        <th>Method</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments.items %}
+                    <tr>
+                        <td>{{ payment.payment_date|date('%d/%m/%Y') }}</td>
+                        <td>{{ payment.receipt_number }}</td>
+                        <td>{{ payment.student.full_name }}</td>
+                        <td class="text-green">{{ payment.amount|currency }}</td>
+                        <td>{{ payment.fee_type }}</td>
+                        <td>{{ payment.payment_method }}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button type="button" onclick="viewReceipt({{ payment.id }})" class="action-btn receipt" title="View Receipt">
+                                    <i class="fas fa-receipt"></i>
+                                </button>
+                                <button type="button" onclick="deletePayment({{ payment.id }}, '{{ payment.receipt_number }}')" class="action-btn delete" title="Delete Payment">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center">No payments found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if payments.pages > 1 %}
+        <div class="pagination mt-4">
+            {% if payments.has_prev %}
+            <a href="{{ url_for('payment.index', page=payments.prev_num, search=search, method=method_filter) }}" class="btn btn-secondary">Previous</a>
+            {% endif %}
+            <span>Page {{ payments.page }} of {{ payments.pages }}</span>
+            {% if payments.has_next %}
+            <a href="{{ url_for('payment.index', page=payments.next_num, search=search, method=method_filter) }}" class="btn btn-secondary">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<!-- Payment Modal -->
+<div id="payment-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Payment</h3>
+            <button type="button" onclick="closePaymentModal()" class="modal-close">&times;</button>
+        </div>
+        <form id="payment-form" onsubmit="submitPayment(event)">
+            <div class="form-group">
+                <label>Student *</label>
+                <select id="payment-student" class="form-control" required onchange="updateStudentBalance()">
+                    <option value="">Select Student</option>
+                </select>
+            </div>
+            <div id="student-balance-display" class="form-group hidden">
+                <label>Current Balance</label>
+                <div style="padding: 0.5rem; background-color: #f3f4f6; border-radius: 0.375rem; font-weight: 600;">
+                    <span id="current-balance-amount">{{ CURRENCY }} 0</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Amount ({{ CURRENCY }}) *</label>
+                <input type="number" id="payment-amount" class="form-control" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label>Fee Type *</label>
+                <select id="payment-fee-type" class="form-control" required>
+                    <option value="Tuition">Tuition</option>
+                    <option value="Books">Books</option>
+                    <option value="Activities">Activities</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Payment Method *</label>
+                <select id="payment-method" class="form-control" required>
+                    <option value="Cash">Cash</option>
+                    <option value="M-Pesa">M-Pesa</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Card">Card</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Transaction Reference</label>
+                <input type="text" id="transaction-reference" class="form-control" placeholder="Optional">
+            </div>
+            <div class="form-group">
+                <label>Payment Date *</label>
+                <input type="date" id="payment-date" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="payment-notes" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" onclick="closePaymentModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-green">Save Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let studentsData = [];
+
+function openPaymentModal() {
+    document.getElementById('payment-modal').classList.remove('hidden');
+    document.getElementById('payment-date').value = new Date().toISOString().split('T')[0];
+    loadStudents();
+}
+
+function closePaymentModal() {
+    document.getElementById('payment-modal').classList.add('hidden');
+    document.getElementById('payment-form').reset();
+}
+
+function loadStudents() {
+    fetch('/students/api/list')
+        .then(response => response.json())
+        .then(data => {
+            studentsData = data;
+            const select = document.getElementById('payment-student');
+            select.innerHTML = '<option value="">Select Student</option>';
+            
+            data.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = `${student.full_name} (Grade ${student.grade}) - Balance: {{ CURRENCY }} ${student.balance.toLocaleString()}`;
+                option.dataset.balance = student.balance;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Error loading students:', error));
+}
+
+function updateStudentBalance() {
+    const select = document.getElementById('payment-student');
+    const balanceDisplay = document.getElementById('student-balance-display');
+    const balanceAmount = document.getElementById('current-balance-amount');
+    
+    if (select.value) {
+        const student = studentsData.find(s => s.id == select.value);
+        if (student) {
+            balanceAmount.textContent = `{{ CURRENCY }} ${student.balance.toLocaleString()}`;
+            balanceAmount.className = student.balance > 0 ? 'text-red' : 'text-green';
+            balanceDisplay.classList.remove('hidden');
+            return;
+        }
+    }
+    
+    balanceDisplay.classList.add('hidden');
+}
+
+function submitPayment(event) {
+    event.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('student_id', document.getElementById('payment-student').value);
+    formData.append('amount', document.getElementById('payment-amount').value);
+    formData.append('fee_type', document.getElementById('payment-fee-type').value);
+    formData.append('payment_method', document.getElementById('payment-method').value);
+    formData.append('transaction_reference', document.getElementById('transaction-reference').value);
+    formData.append('payment_date', document.getElementById('payment-date').value);
+    formData.append('notes', document.getElementById('payment-notes').value);
+    
+    fetch('/payments/create', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Payment recorded successfully!\nReceipt #: ${data.receipt_number}`);
+            closePaymentModal();
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Error creating payment');
+        console.error(error);
+    });
+}
+
+function viewReceipt(paymentId) {
+    window.open(`/payments/receipt/${paymentId}`, '_blank');
+}
+
+function deletePayment(paymentId, receiptNumber) {
+    if (confirm(`Are you sure you want to delete payment ${receiptNumber}?\n\nThis will restore the amount to the student's balance.`)) {
+        fetch(`/payments/delete/${paymentId}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting payment');
+            console.error(error);
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section id="reports-section">
+        <div class="section-header">
+            <h2>Financial Reports</h2>
+            <p>Generate comprehensive financial reports</p>
+        </div>
+
+        <!-- Report Controls -->
+        <div class="report-controls">
+            <div class="report-grid">
+                <div class="form-group">
+                    <label>Start Date</label>
+                    <input type="date" id="report-start-date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>End Date</label>
+                    <input type="date" id="report-end-date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label style="visibility: hidden;">Generate</label>
+                    <button type="button" onclick="generateReport()" class="btn btn-blue" style="width: 100%;">
+                        <i class="fas fa-chart-bar"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Summary -->
+        <div id="report-summary" class="card mb-4">
+            <h3 class="mb-4">Report Summary</h3>
+            <div class="report-summary-grid">
+                <div class="summary-item blue">
+                    <p id="total-collected">{{ CURRENCY }} 0</p>
+                    <p>Total Collected</p>
+                </div>
+                <div class="summary-item red">
+                    <p id="total-outstanding">{{ CURRENCY }} 0</p>
+                    <p>Total Outstanding</p>
+                </div>
+                <div class="summary-item green">
+                    <p id="collection-rate">0%</p>
+                    <p>Collection Rate</p>
+                </div>
+                <div class="summary-item purple">
+                    <p id="payment-count">0</p>
+                    <p>Total Payments</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Charts -->
+        <div class="grid-2">
+            <div class="card">
+                <h3 class="mb-4">Payment Distribution by Grade</h3>
+                <div class="chart-container">
+                    <canvas id="grade-chart"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="mb-4">Payment Methods</h3>
+                <div class="chart-container">
+                    <canvas id="method-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Defaulters List -->
+        <div class="card mt-4">
+            <h3 class="mb-4">Students with Outstanding Balances</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Grade</th>
+                            <th>Outstanding Balance</th>
+                            <th>Guardian Contact</th>
+                        </tr>
+                    </thead>
+                    <tbody id="defaulters-table-body">
+                        <tr>
+                            <td colspan="5" class="text-center">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+let gradeChart = null;
+let methodChart = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('report-start-date').value = today;
+    document.getElementById('report-end-date').value = today;
+    generateReport();
+});
+
+function generateReport() {
+    const startDate = document.getElementById('report-start-date').value;
+    const endDate = document.getElementById('report-end-date').value;
+    
+    loadReportSummary(startDate, endDate);
+    loadGradeChart(startDate, endDate);
+    loadMethodChart(startDate, endDate);
+    loadDefaulters();
+}
+
+function loadReportSummary(startDate, endDate) {
+    fetch(`/reports/api/summary?date_from=${startDate}&date_to=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-collected').textContent = `{{ CURRENCY }} ${data.total_collected.toLocaleString()}`;
+            document.getElementById('total-outstanding').textContent = `{{ CURRENCY }} ${data.total_outstanding.toLocaleString()}`;
+            document.getElementById('collection-rate').textContent = `${data.collection_rate}%`;
+            document.getElementById('payment-count').textContent = data.payment_count;
+        })
+        .catch(error => console.error('Error loading summary:', error));
+}
+
+function loadGradeChart(startDate, endDate) {
+    fetch(`/reports/api/payment-by-grade?date_from=${startDate}&date_to=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('grade-chart').getContext('2d');
+            
+            if (gradeChart) {
+                gradeChart.destroy();
+            }
+            
+            gradeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        data: data.amounts,
+                        backgroundColor: [
+                            '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
+                            '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Error loading grade chart:', error));
+}
+
+function loadMethodChart(startDate, endDate) {
+    fetch(`/reports/api/payment-by-method?date_from=${startDate}&date_to=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('method-chart').getContext('2d');
+            
+            if (methodChart) {
+                methodChart.destroy();
+            }
+            
+            methodChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Payments',
+                        data: data.counts,
+                        backgroundColor: '#3b82f6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Error loading method chart:', error));
+}
+
+function loadDefaulters() {
+    fetch('/reports/api/defaulters?threshold=0')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('defaulters-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">No students with outstanding balances</td></tr>';
+                return;
+            }
+            
+            data.forEach(student => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${student.student_number}</td>
+                    <td>${student.full_name}</td>
+                    <td>Grade ${student.grade}</td>
+                    <td class="text-red">{{ CURRENCY }} ${student.balance.toLocaleString()}</td>
+                    <td>${student.guardian_contact}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        })
+        .catch(error => console.error('Error loading defaulters:', error));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Receipt {{ payment.receipt_number }} - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card" style="max-width: 800px; margin: 2rem auto;">
+        <div class="no-print" style="text-align: right; margin-bottom: 1rem;">
+            <button onclick="window.print()" class="btn btn-blue">
+                <i class="fas fa-print"></i> Print Receipt
+            </button>
+        </div>
+
+        <div class="receipt-content">
+            <div class="receipt-header">
+                <h2>{{ SCHOOL_NAME }}</h2>
+                <p>{{ SCHOOL_ADDRESS }}</p>
+                <p>Phone: {{ SCHOOL_PHONE }}</p>
+            </div>
+            
+            <div class="receipt-title">
+                <h3>Payment Receipt</h3>
+                <p>Receipt #: {{ payment.receipt_number }}</p>
+            </div>
+            
+            <div class="receipt-details">
+                <div class="receipt-row">
+                    <span>Student Name:</span>
+                    <span>{{ payment.student.full_name }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>Student ID:</span>
+                    <span>{{ payment.student.student_number }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>Grade:</span>
+                    <span>Grade {{ payment.student.grade }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>Guardian Contact:</span>
+                    <span>{{ payment.student.guardian_contact }}</span>
+                </div>
+                <hr class="receipt-divider">
+                <div class="receipt-row">
+                    <span>Payment Date:</span>
+                    <span>{{ payment.payment_date|date('%d/%m/%Y') }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>Fee Type:</span>
+                    <span>{{ payment.fee_type }}</span>
+                </div>
+                <div class="receipt-row">
+                    <span>Payment Method:</span>
+                    <span>{{ payment.payment_method }}</span>
+                </div>
+                {% if payment.transaction_reference %}
+                <div class="receipt-row">
+                    <span>Transaction Reference:</span>
+                    <span>{{ payment.transaction_reference }}</span>
+                </div>
+                {% endif %}
+                <div class="receipt-row receipt-total">
+                    <span>Amount Paid:</span>
+                    <span class="text-green">{{ payment.amount|currency }}</span>
+                </div>
+                <hr class="receipt-divider">
+                <div class="receipt-row receipt-total">
+                    <span>Remaining Balance:</span>
+                    <span class="{{ 'text-red' if payment.student.balance > 0 else 'text-green' }}">
+                        {{ payment.student.balance|currency }}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="receipt-footer">
+                <p>Thank you for your payment!</p>
+                <p>This is a computer-generated receipt. Generated on {{ payment.created_at|date('%d/%m/%Y %H:%M') }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
